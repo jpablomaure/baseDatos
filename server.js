@@ -11,7 +11,7 @@ const { Server: IOServer } = require('socket.io');
 const knexSqlite = knex({
     client: 'sqlite3',
     connection: {
-        filename: __dirname+"./mydb.sqlite"
+        filename: __dirname+"./DB/mydb.sqlite"
     }
 })
 const app = express();
