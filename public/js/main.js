@@ -25,5 +25,5 @@ function enviarMensaje(){
 
     // una vez que capture el mensaje lo emito
 
-    socket.emit('from-client-mensaje' , mensaje)
+    socket.emit('nuevoMensaje' , mensaje)
 }

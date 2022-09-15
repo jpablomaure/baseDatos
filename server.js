@@ -2,10 +2,18 @@
 const express = require('express');
 const exphbs = require('express-handlebars');
 const path = require('path');
+const knex = require('knex')
 const { Server: HttpServer } = require('http');
 const { Server: IOServer } = require('socket.io');
 
 /* ---------------------- Instancia de servidor ----------------------*/
+
+const knexSqlite = knex({
+    client: 'sqlite3',
+    connection: {
+        filename: __dirname+"./mydb.sqlite"
+    }
+})
 const app = express();
 const httpServer = new HttpServer(app);
 const io = new IOServer(httpServer);
@@ -27,8 +35,6 @@ app.set('view engine', 'hbs');
 
 
 /*---------------------- Base de datos ----------------------*/
-const DB_MENSAJES = []
-
 const DB_PRODUCTOS = [
 ]
 
@@ -48,26 +54,35 @@ app.post('/productos', (req, res)=>{
     res.redirect('/cargados');
 });
 
+async function createTable() {
+    const exists = await knexSqlite.schema.hasTable('mensaje');
+    if (!exists) {
+        await knexSqlite.schema.createTable('mensaje', table =>{
+            table.string('from');
+            table.string('text');
+        })
+    }
+}
+
+createTable();
 /* ---------------------- Servidor ----------------------*/
-const PORT = 3004;
+const PORT = 3006;
 const server = httpServer.listen(PORT, ()=>{
     console.log(`Servidor escuchando en el puerto ${server.address().port}`)
 })
 
-const PORT2 = 3005;
-const server2 = app.listen(PORT2, ()=>{
-    console.log(`Servidor escuchando en el puerto ${server2.address().port}`)
-})
-
-server2.on('error', err => console.log(`error en server ${err}`));
+server.on('error', err => console.log(`error en server ${err}`));
 
 /* ---------------------- WebSocket ----------------------*/
-io.on('connection', (socket)=>{
+io.on('connection', async socket=>{
+    const msgs = await knexSqlite.from('mensaje').select('from', 'text');
     console.log(`Nuevo cliente conectado! ${socket.id}`);
-    socket.emit('from-server-mensajes', {DB_MENSAJES});
+    socket.emit('mensajes', msgs);
 
-    socket.on('from-client-mensaje', mensaje => {
-        DB_MENSAJES.push(mensaje);
-        io.sockets.emit('from-server-mensajes', {DB_MENSAJES});
+    socket.on('nuevoMensaje', async msg => {
+        await knexSqlite('mensaje').insert({from: socket.id, text: msg})
+        const msgs = await knexSqlite.from('mensaje').select('from', 'text')
+        // DB_MENSAJES.push(mensaje);
+        io.sockets.emit('mensajes', msgs);
     });
 })
